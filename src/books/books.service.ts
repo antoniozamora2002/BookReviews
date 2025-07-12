@@ -76,8 +76,11 @@ export class BooksService {
     return this.booksRepository.find();
   }
 
-  findOne(id: number): Promise<Book | null> {
-    return this.booksRepository.findOneBy({ id });
+  async findOne(id: number): Promise<Book | null> {
+    return this.booksRepository.findOne({
+      where: { id },
+      relations: ['reviews'],
+    });
   }
 
   update(id: number, updateBookDto: UpdateBookDto) {
