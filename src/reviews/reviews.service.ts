@@ -4,7 +4,6 @@ import { UpdateReviewDto } from './dto/update-review.dto';
 import { Review } from './entities/review.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { BooksService } from 'src/books/books.service';
 import { Book } from 'src/books/entities/book.entity';
 
 @Injectable()
@@ -37,15 +36,18 @@ export class ReviewsService {
     });
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} review`;
+  async findOne(id: number): Promise<Review | null> {
+    return this.reviewsRepository.findOne({
+      where: { id },
+      relations: ['book'],
+    });
   }
 
   update(id: number, updateReviewDto: UpdateReviewDto) {
     return `This action updates a #${id} review`;
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} review`;
+  async remove(id: number): Promise<void> {
+    await this.reviewsRepository.delete(id);
   }
 }

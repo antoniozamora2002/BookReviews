@@ -9,7 +9,7 @@ import { Review } from './reviews/entities/review.entity';
 @Module({
   imports: [
     ConfigModule.forRoot({
-      isGlobal: true, // ✅ Hace que esté disponible en todos los módulos sin importar
+      isGlobal: true, // Hace que esté disponible en todos los módulos sin importar
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],

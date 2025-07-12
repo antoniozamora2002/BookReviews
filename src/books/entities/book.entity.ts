@@ -33,7 +33,7 @@ export class Book {
   @Column({ nullable: true })
   language: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'text', nullable: true })
   thumbnail: string;
 
   @Column({ nullable: true })

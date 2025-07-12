@@ -83,8 +83,17 @@ export class BooksService {
     });
   }
 
-  update(id: number, updateBookDto: UpdateBookDto) {
-    return `This action updates a #${id} book`;
+  async update(id: number, updateBookDto: UpdateBookDto): Promise<Book> {
+    const book = await this.booksRepository.findOneBy({ id });
+
+    if (!book) {
+      throw new NotFoundException(`Book with id ${id} not found`);
+    }
+
+    // Mezcla los campos actualizados en la entidad existente
+    const updated = this.booksRepository.merge(book, updateBookDto);
+
+    return this.booksRepository.save(updated);
   }
 
   async remove(id: number): Promise<void> {
