@@ -43,8 +43,19 @@ export class ReviewsService {
     });
   }
 
-  update(id: number, updateReviewDto: UpdateReviewDto) {
-    return `This action updates a #${id} review`;
+  async update(id: number, updateReviewDto: UpdateReviewDto): Promise<Review> {
+    const review = await this.reviewsRepository.findOne({
+      where: { id },
+      relations: ['book'],
+    });
+
+    if (!review) {
+      throw new NotFoundException(`Review with id ${id} not found`);
+    }
+
+    const updated = this.reviewsRepository.merge(review, updateReviewDto);
+
+    return this.reviewsRepository.save(updated);
   }
 
   async remove(id: number): Promise<void> {
