@@ -4,6 +4,8 @@ import {
   IsArray,
   IsInt,
   IsBoolean,
+  ArrayNotEmpty,
+  ArrayUnique,
 } from 'class-validator';
 
 export class UpdateBookDto {
@@ -17,6 +19,8 @@ export class UpdateBookDto {
 
   @IsOptional()
   @IsArray()
+  @ArrayNotEmpty()
+  @IsString({ each: true })
   authors?: string[];
 
   @IsOptional()
