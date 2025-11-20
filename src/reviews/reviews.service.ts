@@ -53,14 +53,20 @@ export class ReviewsService {
     });
   }
 
-  async update(id: number, updateReviewDto: UpdateReviewDto): Promise<Review> {
+  async update(
+    id: number,
+    updateReviewDto: UpdateReviewDto,
+    userId: number,
+  ): Promise<Review> {
     const review = await this.reviewsRepository.findOne({
-      where: { id },
+      where: { id, user: { id: userId } },
       relations: ['book'],
     });
 
     if (!review) {
-      throw new NotFoundException(`Review with id ${id} not found`);
+      throw new NotFoundException(
+        `Review with id ${id} not found or not authorized`,
+      );
     }
 
     const updated = this.reviewsRepository.merge(review, updateReviewDto);
@@ -68,7 +74,20 @@ export class ReviewsService {
     return this.reviewsRepository.save(updated);
   }
 
-  async remove(id: number): Promise<void> {
+  async remove(id: number, userId: number): Promise<void> {
+    const review = await this.reviewsRepository.findOne({
+      where: {
+        id,
+        user: { id: userId },
+      },
+    });
+
+    if (!review) {
+      throw new NotFoundException(
+        `Review with id ${id} not found or not authorized`,
+      );
+    }
+
     await this.reviewsRepository.delete(id);
   }
 }
