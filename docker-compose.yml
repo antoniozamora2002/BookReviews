@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  # --- Tu Aplicación NestJS ---
+  api:
+    build: .
+    ports:
+      - '3000:3000'
+    # 1. Carga todas las variables de tu archivo .env
+    env_file:
+      - .env
+    # 2. Sobrescribe SOLO lo que cambia dentro de Docker
+    environment:
+      # Docker necesita el nombre del servicio, no 'localhost'
+      - DB_HOST=postgres_db
+
+    depends_on:
+      - postgres_db
+    networks:
+      - nest-network
+
+  # --- Base de datos PostgreSQL ---
+  postgres_db:
+    image: postgres:16-alpine
+    container_name: bookreviews_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_DATABASE}
+    ports:
+      - '5433:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - nest-network
+
+volumes:
+  postgres_data:
+
+networks:
+  nest-network:
