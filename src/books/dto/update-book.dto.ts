@@ -5,7 +5,6 @@ import {
   IsInt,
   IsBoolean,
   ArrayNotEmpty,
-  ArrayUnique,
 } from 'class-validator';
 
 export class UpdateBookDto {
