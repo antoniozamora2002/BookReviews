@@ -56,6 +56,6 @@ jobs:
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'bookreviews-api'
-          slot-name: 'Production'
+          # slot-name: 'Production'
           package: .
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
