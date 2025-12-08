@@ -12,7 +12,7 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: Production # Opcional, si usas approvals
+    environment: Production # Opcional
 
     steps:
       - uses: actions/checkout@v4
@@ -20,7 +20,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '20' # Consistente con tu CI/Dockerfile
           cache: 'npm'
 
       - name: Install & Build
@@ -28,12 +28,20 @@ jobs:
           npm ci
           npm run build --if-present
 
+      # Opcional: Debug secrets (para ver si se resuelven – bórralo después del primer run exitoso)
+      - name: Debug secrets
+        run: |
+          echo "Client ID length: ${AZURE_CLIENT_ID:0:10}..."  # Muestra primeros 10 chars
+          echo "Tenant ID length: ${AZURE_TENANT_ID:0:10}..."
+          echo "Subscription ID length: ${AZURE_SUBSCRIPTION_ID:0:10}..."
+
       - name: Login to Azure (OIDC)
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          auth-type: OIDC # Explícito para forzar OIDC (default, pero ayuda al debug)
 
       - name: Deploy to App Service
         uses: azure/webapps-deploy@v3
