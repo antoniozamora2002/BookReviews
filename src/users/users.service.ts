@@ -26,12 +26,7 @@ export class UsersService {
   findOne(id: number): Promise<User | null> {
     return this.usersRepository.findOne({
       where: { id },
-      relations: ['reviews', 'reviews.book'],
-      order: {
-        reviews: {
-          id: 'DESC',
-        },
-      },
+      relations: ['reviews'],
     });
   }
 
