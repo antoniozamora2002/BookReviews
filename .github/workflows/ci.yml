@@ -31,22 +31,27 @@ jobs:
       - name: Checkout del código
         uses: actions/checkout@v4
 
+      # Debe ir ANTES de setup-node para que cache:'pnpm' encuentre el binario.
+      # Sin 'version': toma la del campo "packageManager" de package.json
+      - name: Configurar pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20' # Coincide con tu Dockerfile
-          cache: 'npm'
+          node-version: '22' # Coincide con tu Dockerfile
+          cache: 'pnpm'
 
       - name: Instalar dependencias
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Verificar formato y Lint
         run: |
-          npm run format
-          npm run lint
+          pnpm run format
+          pnpm run lint
 
       - name: Ejecutar Tests Unitarios
-        run: npm run test
+        run: pnpm run test
         env:
           # Variables necesarias para que NestJS arranque el entorno de test
           DB_HOST: localhost
@@ -58,7 +63,7 @@ jobs:
           GOOGLE_BOOKS_API_KEY: 'dummy-key' # Clave dummy si se usa en tests
 
       - name: Verificar Build de Producción (NestJS)
-        run: npm run build
+        run: pnpm run build
 
       - name: Verificar Build de Docker
         # Esto asegura que tu Dockerfile es válido antes de mezclar código
