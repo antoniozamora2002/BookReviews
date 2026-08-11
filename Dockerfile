@@ -1,31 +1,35 @@
 # --- Etapa 1: Construcción (Builder) ---
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 # Establecer directorio de trabajo
 WORKDIR /app
 
-# Copiar archivos de dependencias
-COPY package*.json ./
+# Habilita pnpm segun el campo "packageManager" de package.json
+RUN corepack enable
 
-# Instalar todas las dependencias (incluyendo devDependencies para el build)
-RUN npm ci
+# pnpm-workspace.yaml lleva los overrides y allowBuilds: sin el, el arbol
+# de dependencias no coincide con el de local
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile
 
 # Copiar el código fuente
 COPY . .
 
 # Construir la aplicación (crea la carpeta dist/)
-RUN npm run build
+RUN pnpm run build
 
 # --- Etapa 2: Producción (Runner) ---
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 
 WORKDIR /app
 
+RUN corepack enable
+
 # Copiar archivos de dependencias nuevamente
-COPY package*.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 # Instalar SOLO dependencias de producción (más ligero)
-RUN npm ci --only=production
+RUN pnpm install --prod --frozen-lockfile
 
 # Copiar la carpeta compilada desde la etapa anterior
 COPY --from=builder /app/dist ./dist
