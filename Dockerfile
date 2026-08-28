@@ -23,6 +23,10 @@ FROM node:22-alpine AS runner
 
 WORKDIR /app
 
+# Sin esto el guard de typeorm.config.ts no se activa y synchronize quedaria
+# encendido en produccion, que es justo lo que hay que evitar
+ENV NODE_ENV=production
+
 RUN corepack enable
 
 # Copiar archivos de dependencias nuevamente

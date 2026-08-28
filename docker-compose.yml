@@ -11,8 +11,12 @@ services:
       - .env
     # 2. Sobrescribe SOLO lo que cambia dentro de Docker
     environment:
-      # Docker necesita el nombre del servicio, no 'localhost'
+      # Dentro de la red de compose se usa el nombre del servicio, no 'localhost'
       - DB_HOST=postgres_db
+      # Y el puerto INTERNO del contenedor (5432), no el publicado en el host
+      # (5433). Sin esta linea, el .env de desarrollo local romperia la app
+      # dentro de Docker.
+      - DB_PORT=5432
 
     depends_on:
       - postgres_db
