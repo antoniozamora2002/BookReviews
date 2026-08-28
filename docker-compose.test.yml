@@ -1,0 +1,24 @@
+# Base de datos efimera solo para los tests e2e.
+#   docker compose -f docker-compose.test.yml up -d
+#   pnpm run test:e2e
+#   docker compose -f docker-compose.test.yml down
+#
+# Puerto 5434 para no chocar con el 5433 de docker-compose.yml (desarrollo).
+services:
+  postgres_test:
+    image: postgres:16-alpine
+    container_name: bookreviews_postgres_test
+    environment:
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+      POSTGRES_DB: test_db
+    ports:
+      - '5434:5432'
+    # En memoria: los datos no sobreviven al contenedor y los tests vuelan
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U test_user -d test_db']
+      interval: 2s
+      timeout: 3s
+      retries: 15
