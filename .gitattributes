@@ -1,0 +1,8 @@
+# El repo guarda todo en LF. Sin esto, en Windows core.autocrlf=true deja
+# CRLF en disco y "prettier --check" falla en local aunque pase en el CI.
+* text=auto eol=lf
+
+# Binarios: que git no toque los finales de linea
+*.png binary
+*.jpg binary
+*.ico binary

@@ -10,22 +10,9 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
-    # Servicio de base de datos para que los tests no fallen al conectar
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: test_user
-          POSTGRES_PASSWORD: test_password
-          POSTGRES_DB: test_db
-        ports:
-          - 5432:5432
-        # Esperar a que Postgres esté listo
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+    # Sin servicio de Postgres: los tests de src/ son unitarios y mockean
+    # los repositorios, nadie abre una conexion. Si algun dia se añaden los
+    # e2e de test/ al pipeline habra que volver a levantarlo.
 
     steps:
       - name: Checkout del código
@@ -45,22 +32,16 @@ jobs:
       - name: Instalar dependencias
         run: pnpm install --frozen-lockfile
 
-      - name: Verificar formato y Lint
-        run: |
-          pnpm run format
-          pnpm run lint
+      # --check / sin --fix: estos comandos REPORTAN, no arreglan. Con
+      # --write y --fix el step siempre salia con codigo 0 y no verificaba nada
+      - name: Verificar formato
+        run: pnpm run format:check
+
+      - name: Verificar Lint
+        run: pnpm run lint:check
 
       - name: Ejecutar Tests Unitarios
         run: pnpm run test
-        env:
-          # Variables necesarias para que NestJS arranque el entorno de test
-          DB_HOST: localhost
-          DB_PORT: 5432
-          DB_USERNAME: test_user
-          DB_PASSWORD: test_password
-          DB_DATABASE: test_db
-          JWT_SECRET: 'super-secret-test-key' # Clave dummy para tests
-          GOOGLE_BOOKS_API_KEY: 'dummy-key' # Clave dummy si se usa en tests
 
       - name: Verificar Build de Producción (NestJS)
         run: pnpm run build

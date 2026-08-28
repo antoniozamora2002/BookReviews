@@ -7,16 +7,14 @@ import {
   Param,
   Delete,
   UseGuards,
-  UseInterceptors,
-  ClassSerializerInterceptor,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { AuthGuard } from '@nestjs/passport';
 
+// ClassSerializerInterceptor se aplica de forma global en main.ts
 @UseGuards(AuthGuard('jwt'))
-@UseInterceptors(ClassSerializerInterceptor)
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
