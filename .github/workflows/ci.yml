@@ -10,9 +10,22 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
-    # Sin servicio de Postgres: los tests de src/ son unitarios y mockean
-    # los repositorios, nadie abre una conexion. Si algun dia se añaden los
-    # e2e de test/ al pipeline habra que volver a levantarlo.
+    # Los tests de src/ son unitarios y mockean los repositorios, pero los
+    # e2e de test/ arrancan AppModule contra una BD real.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout del código
@@ -42,6 +55,13 @@ jobs:
 
       - name: Ejecutar Tests Unitarios
         run: pnpm run test
+
+      # DB_PORT_TEST: el service container expone 5432; en local es 5434
+      - name: Ejecutar Tests E2E
+        run: pnpm run test:e2e
+        env:
+          DB_HOST_TEST: localhost
+          DB_PORT_TEST: 5432
 
       - name: Verificar Build de Producción (NestJS)
         run: pnpm run build
