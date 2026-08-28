@@ -8,5 +8,10 @@ process.env.DB_PORT = process.env.DB_PORT_TEST ?? '5434';
 process.env.DB_USERNAME = 'test_user';
 process.env.DB_PASSWORD = 'test_password';
 process.env.DB_DATABASE = 'test_db';
-process.env.JWT_SECRET = 'secreto-solo-para-tests';
+process.env.JWT_SECRET = 'secreto-solo-para-tests-con-32-caracteres-minimo';
+process.env.JWT_REFRESH_SECRET = 'otro-secreto-de-refresh-para-tests-distinto';
+
+// Los e2e hacen decenas de peticiones seguidas; el rate limiting los cortaria.
+// throttle.e2e-spec.ts lo vuelve a activar para probarlo especificamente.
+process.env.THROTTLE_DISABLED = 'true';
 process.env.GOOGLE_BOOKS_API_KEY = 'dummy-key';
