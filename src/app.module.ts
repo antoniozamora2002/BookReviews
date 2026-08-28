@@ -14,7 +14,6 @@ import { AuthModule } from './auth/auth.module';
     DatabaseModule,
     BooksModule,
     ReviewsModule,
-    DatabaseModule,
     UsersModule,
     AuthModule,
   ],
