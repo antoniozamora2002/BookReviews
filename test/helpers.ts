@@ -5,6 +5,8 @@ import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/setup-app';
 import { Book } from '../src/books/entities/book.entity';
+import { User } from '../src/users/entities/user.entity';
+import { Role } from '../src/auth/enums/role.enum';
 
 export async function createTestApp(): Promise<INestApplication> {
   const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -25,12 +27,18 @@ export async function resetDb(app: INestApplication): Promise<void> {
   );
 }
 
-/** Registra un usuario y devuelve su token e id. */
+export interface Sesion {
+  token: string;
+  refreshToken: string;
+  id: number;
+}
+
+/** Registra un usuario y devuelve sus tokens e id. */
 export async function registerAndLogin(
   app: INestApplication,
   email: string,
   password = 'secreto123',
-): Promise<{ token: string; id: number }> {
+): Promise<Sesion> {
   const registered = await request(app.getHttpServer())
     .post('/auth/register')
     .send({ email, password })
@@ -39,9 +47,46 @@ export async function registerAndLogin(
   const logged = await request(app.getHttpServer())
     .post('/auth/login')
     .send({ email, password })
+    .expect(200);
+
+  return {
+    token: logged.body.access_token,
+    refreshToken: logged.body.refresh_token,
+    id: registered.body.id,
+  };
+}
+
+/**
+ * Crea un admin. El rol se asciende directamente en la BD porque solo un
+ * admin puede ascender a otro: hay que romper el huevo-gallina en algun sitio
+ * (en produccion, con una migracion de seed o a mano la primera vez).
+ */
+export async function registerAdmin(
+  app: INestApplication,
+  email: string,
+  password = 'secreto123',
+): Promise<Sesion> {
+  const registered = await request(app.getHttpServer())
+    .post('/auth/register')
+    .send({ email, password })
     .expect(201);
 
-  return { token: logged.body.access_token, id: registered.body.id };
+  await app
+    .get(DataSource)
+    .getRepository(User)
+    .update(registered.body.id, { role: Role.Admin });
+
+  // Login DESPUES de ascender: el rol viaja dentro del token
+  const logged = await request(app.getHttpServer())
+    .post('/auth/login')
+    .send({ email, password })
+    .expect(200);
+
+  return {
+    token: logged.body.access_token,
+    refreshToken: logged.body.refresh_token,
+    id: registered.body.id,
+  };
 }
 
 /**

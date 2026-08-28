@@ -1,8 +1,20 @@
-import { Body, Controller, Post, UnauthorizedException } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Post,
+  UnauthorizedException,
+  UseGuards,
+} from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { UsersService } from 'src/users/users.service';
 import { CreateUserDto } from 'src/users/dto/create-user.dto';
-import * as bcrypt from 'bcrypt';
+import { LoginDto } from './dto/login.dto';
+import { RefreshDto } from './dto/refresh.dto';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { CurrentUser, JwtUser } from './decorators/current-user.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -11,21 +23,34 @@ export class AuthController {
     private usersService: UsersService,
   ) {}
 
+  // El hasheo lo hace UsersService.create(); aqui ya no se toca la contraseña
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('register')
   async register(@Body() dto: CreateUserDto) {
-    const hashed = await bcrypt.hash(dto.password, 10);
-    const user = await this.usersService.create({
-      ...dto,
-      password: hashed,
-    });
-    const { password, ...result } = user;
-    return result;
+    return this.usersService.create(dto);
   }
 
+  // 5 intentos por minuto: sin esto el login admitia fuerza bruta ilimitada
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @HttpCode(HttpStatus.OK)
   @Post('login')
-  async login(@Body() body: { email: string; password: string }) {
-    const user = await this.authService.validateUser(body.email, body.password);
+  async login(@Body() dto: LoginDto) {
+    const user = await this.authService.validateUser(dto.email, dto.password);
     if (!user) throw new UnauthorizedException('Invalid credentials');
     return this.authService.login(user);
+  }
+
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @HttpCode(HttpStatus.OK)
+  @Post('refresh')
+  async refresh(@Body() dto: RefreshDto) {
+    return this.authService.refresh(dto.refresh_token);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @Post('logout')
+  async logout(@CurrentUser() user: JwtUser) {
+    return this.authService.logout(user.userId);
   }
 }

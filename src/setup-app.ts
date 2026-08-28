@@ -4,6 +4,7 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import helmet from 'helmet';
 
 /**
  * Configuracion global compartida por main.ts y los tests e2e.
@@ -13,6 +14,9 @@ import { Reflector } from '@nestjs/core';
  * pasaria desapercibida justo en los tests que deberian detectarla.
  */
 export function configureApp(app: INestApplication): INestApplication {
+  // Cabeceras de seguridad (CSP, HSTS, X-Frame-Options, nosniff...)
+  app.use(helmet());
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

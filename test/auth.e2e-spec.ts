@@ -28,6 +28,7 @@ describe('Auth (e2e)', () => {
       expect(res.body).toEqual({
         id: expect.any(Number),
         email: 'nuevo@test.com',
+        role: 'user',
       });
       expect(JSON.stringify(res.body)).not.toContain('$2b$');
     });
@@ -90,9 +91,10 @@ describe('Auth (e2e)', () => {
       const res = await request(app.getHttpServer())
         .post('/auth/login')
         .send({ email: 'login@test.com', password: 'secreto123' })
-        .expect(201);
+        .expect(200);
 
       expect(typeof res.body.access_token).toBe('string');
+      expect(typeof res.body.refresh_token).toBe('string');
     });
 
     it('devuelve 401 con la contraseña incorrecta', async () => {
@@ -123,7 +125,11 @@ describe('Auth (e2e)', () => {
         .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
-      expect(res.body).toEqual({ userId: id, email: 'perfil@test.com' });
+      expect(res.body).toEqual({
+        userId: id,
+        email: 'perfil@test.com',
+        role: 'user',
+      });
     });
 
     it('GET /users sin token devuelve 401', async () => {
