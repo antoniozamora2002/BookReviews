@@ -47,10 +47,19 @@ export class AuthController {
     return this.authService.refresh(dto.refresh_token);
   }
 
+  // Cierra SOLO la sesion del refresh token presentado: los demas
+  // dispositivos del usuario siguen conectados
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @Post('logout')
-  async logout(@CurrentUser() user: JwtUser) {
-    return this.authService.logout(user.userId);
+  async logout(@Body() dto: RefreshDto) {
+    return this.authService.logout(dto.refresh_token);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @Post('logout-all')
+  async logoutAll(@CurrentUser() user: JwtUser) {
+    return this.authService.logoutAll(user.userId);
   }
 }

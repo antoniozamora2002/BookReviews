@@ -13,6 +13,7 @@ describe('AuthController', () => {
     login: jest.fn(),
     refresh: jest.fn(),
     logout: jest.fn(),
+    logoutAll: jest.fn(),
   };
 
   const mockUsersService = {
@@ -80,14 +81,22 @@ describe('AuthController', () => {
   });
 
   describe('logout', () => {
-    it('cierra la sesion del usuario del token, no de uno del body', async () => {
-      await controller.logout({
+    it('cierra solo la sesion del refresh token presentado', async () => {
+      await controller.logout({ refresh_token: 'refresh-de-este-aparato' });
+
+      expect(mockAuthService.logout).toHaveBeenCalledWith(
+        'refresh-de-este-aparato',
+      );
+    });
+
+    it('logout-all usa el id del token, no uno del body', async () => {
+      await controller.logoutAll({
         userId: 42,
         email: 'a@test.com',
         role: Role.User,
       });
 
-      expect(mockAuthService.logout).toHaveBeenCalledWith(42);
+      expect(mockAuthService.logoutAll).toHaveBeenCalledWith(42);
     });
   });
 });

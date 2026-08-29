@@ -6,7 +6,6 @@ import { User } from './entities/user.entity';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { Role } from 'src/auth/enums/role.enum';
-import { digestToken } from 'src/auth/token-hash';
 
 export const SALT_ROUNDS = 10;
 
@@ -82,13 +81,5 @@ export class UsersService {
 
   async findById(id: number) {
     return this.usersRepository.findOneBy({ id });
-  }
-
-  /** Guarda el hash del refresh token en uso (null al cerrar sesion). */
-  async setRefreshToken(id: number, refreshToken: string | null) {
-    const hashed = refreshToken
-      ? await bcrypt.hash(digestToken(refreshToken), SALT_ROUNDS)
-      : null;
-    await this.usersRepository.update(id, { hashedRefreshToken: hashed });
   }
 }

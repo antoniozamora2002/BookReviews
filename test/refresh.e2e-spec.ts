@@ -84,6 +84,7 @@ describe('Refresh tokens (e2e)', () => {
     await request(app.getHttpServer())
       .post('/auth/logout')
       .set(auth(sesion.token))
+      .send({ refresh_token: sesion.refreshToken })
       .expect(200);
 
     await request(app.getHttpServer())
@@ -97,5 +98,74 @@ describe('Refresh tokens (e2e)', () => {
       .post('/auth/refresh')
       .send({ refresh_token: 'esto-no-es-un-jwt' })
       .expect(400);
+  });
+  // El bug: entrar desde un segundo aparato expulsaba al primero, porque el
+  // hash del refresh vivia en UNA columna de User en vez de una fila por sesion
+  describe('multi-dispositivo', () => {
+    const login = async () => {
+      const res = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: 'refresh@test.com', password: 'secreto123' })
+        .expect(200);
+      return res.body as { access_token: string; refresh_token: string };
+    };
+
+    it('un segundo login NO invalida la sesion del primero', async () => {
+      const movil = await login();
+      const portatil = await login();
+
+      // El ultimo funciona...
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refresh_token: portatil.refresh_token })
+        .expect(200);
+
+      // ...y el primero TAMBIEN sigue vivo
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refresh_token: movil.refresh_token })
+        .expect(200);
+    });
+
+    it('logout cierra solo el aparato que lo pide', async () => {
+      const movil = await login();
+      const portatil = await login();
+
+      await request(app.getHttpServer())
+        .post('/auth/logout')
+        .set(auth(portatil.access_token))
+        .send({ refresh_token: portatil.refresh_token })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refresh_token: portatil.refresh_token })
+        .expect(401);
+
+      // El movil sigue conectado
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refresh_token: movil.refresh_token })
+        .expect(200);
+    });
+
+    it('logout-all cierra todos los aparatos', async () => {
+      const movil = await login();
+      const portatil = await login();
+
+      await request(app.getHttpServer())
+        .post('/auth/logout-all')
+        .set(auth(portatil.access_token))
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refresh_token: portatil.refresh_token })
+        .expect(401);
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refresh_token: movil.refresh_token })
+        .expect(401);
+    });
   });
 });

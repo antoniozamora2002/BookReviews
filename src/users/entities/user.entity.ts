@@ -3,6 +3,7 @@ import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
 import { Review } from 'src/reviews/entities/review.entity';
 import { Exclude } from 'class-transformer';
 import { Role } from 'src/auth/enums/role.enum';
+import { RefreshToken } from 'src/auth/entities/refresh-token.entity';
 
 @Entity()
 export class User {
@@ -21,10 +22,10 @@ export class User {
   @Column({ type: 'enum', enum: Role, default: Role.User })
   role: Role;
 
-  // Hash del refresh token en uso. Null = sesion cerrada.
-  @Column({ type: 'varchar', nullable: true })
+  // Una sesion activa por dispositivo
+  @OneToMany(() => RefreshToken, (token) => token.user)
   @Exclude()
-  hashedRefreshToken: string | null;
+  refreshTokens: RefreshToken[];
 
   @OneToMany(() => Review, (review) => review.user)
   reviews: Review[];

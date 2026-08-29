@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import helmet from 'helmet';
+import { DatabaseExceptionFilter } from './common/filters/database-exception.filter';
 
 /**
  * Configuracion global compartida por main.ts y los tests e2e.
@@ -28,6 +29,10 @@ export function configureApp(app: INestApplication): INestApplication {
   // Global para que @Exclude() (ej. User.password) se aplique en TODAS las
   // respuestas, no solo en las de UsersController
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
+
+  // Traduce los errores de Postgres (email duplicado, FK rota...) a codigos
+  // HTTP correctos en vez de dejarlos subir como 500
+  app.useGlobalFilters(new DatabaseExceptionFilter());
 
   return app;
 }

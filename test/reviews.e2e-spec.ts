@@ -1,11 +1,17 @@
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
-import { createTestApp, resetDb, registerAndLogin, seedBook } from './helpers';
+import {
+  createTestApp,
+  resetDb,
+  registerAndLogin,
+  seedBook,
+  Sesion,
+} from './helpers';
 
 describe('Reviews (e2e)', () => {
   let app: INestApplication;
-  let dueno: { token: string; id: number };
-  let intruso: { token: string; id: number };
+  let dueno: Sesion;
+  let intruso: Sesion;
   let bookId: number;
 
   beforeAll(async () => {
@@ -147,6 +153,28 @@ describe('Reviews (e2e)', () => {
         .set('Authorization', `Bearer ${dueno.token}`)
         .expect(200);
       expect(res.body).toHaveLength(0);
+    });
+  });
+  describe('ids no numericos', () => {
+    // El bug: con +id, /reviews/abc producia NaN y la query reventaba con 500.
+    // Se comprueba el MENSAJE, no solo el 400: el DatabaseExceptionFilter
+    // tambien devuelve 400 para el 22P02 de Postgres, asi que sin mirar el
+    // mensaje el test no distinguiria si el ParseIntPipe sigue puesto.
+    it('GET /reviews/abc lo rechaza el pipe, sin llegar a la BD', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/reviews/abc')
+        .set(`Authorization`, `Bearer ${dueno.token}`)
+        .expect(400);
+
+      expect(JSON.stringify(res.body)).toContain('numeric string is expected');
+    });
+
+    it('PATCH /reviews/abc responde 400', async () => {
+      await request(app.getHttpServer())
+        .patch('/reviews/abc')
+        .set('Authorization', `Bearer ${dueno.token}`)
+        .send({ comment: 'x' })
+        .expect(400);
     });
   });
 });
