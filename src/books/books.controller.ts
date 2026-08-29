@@ -13,6 +13,7 @@ import {
 import { BooksService } from './books.service';
 import { CreateBookDto } from './dto/create-book.dto';
 import { UpdateBookDto } from './dto/update-book.dto';
+import { SearchBooksDto } from './dto/search-books.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
@@ -27,8 +28,8 @@ export class BooksController {
   constructor(private readonly booksService: BooksService) {}
 
   @Get('search')
-  async search(@Query('q') query: string) {
-    return await this.booksService.searchBooks(query);
+  async search(@Query() dto: SearchBooksDto) {
+    return await this.booksService.searchBooks(dto.q);
   }
 
   @Roles(Role.Admin)

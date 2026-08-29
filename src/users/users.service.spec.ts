@@ -5,7 +5,6 @@ import { UsersService } from './users.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
 import { Role } from 'src/auth/enums/role.enum';
-import { digestToken } from 'src/auth/token-hash';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -92,29 +91,6 @@ describe('UsersService', () => {
       const res = await service.update(1, { email: 'nuevo@test.com' });
 
       expect(res.email).toBe('nuevo@test.com');
-    });
-  });
-
-  describe('setRefreshToken', () => {
-    it('guarda el refresh token hasheado, no en claro', async () => {
-      await service.setRefreshToken(1, 'token-en-claro');
-
-      const [, cambios] = mockUserRepository.update.mock.calls[0];
-      expect(cambios.hashedRefreshToken).not.toBe('token-en-claro');
-      await expect(
-        bcrypt.compare(
-          digestToken('token-en-claro'),
-          cambios.hashedRefreshToken,
-        ),
-      ).resolves.toBe(true);
-    });
-
-    it('guarda null al cerrar sesion', async () => {
-      await service.setRefreshToken(1, null);
-
-      expect(mockUserRepository.update).toHaveBeenCalledWith(1, {
-        hashedRefreshToken: null,
-      });
     });
   });
 

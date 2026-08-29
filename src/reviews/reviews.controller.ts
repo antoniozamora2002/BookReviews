@@ -7,21 +7,28 @@ import {
   Param,
   Delete,
   UseGuards,
-  Request,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { ReviewsService } from './reviews.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
-import { AuthGuard } from '@nestjs/passport';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import {
+  CurrentUser,
+  JwtUser,
+} from 'src/auth/decorators/current-user.decorator';
 
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(JwtAuthGuard)
 @Controller('reviews')
 export class ReviewsController {
   constructor(private readonly reviewsService: ReviewsService) {}
 
   @Post()
-  create(@Body() createReviewDto: CreateReviewDto, @Request() req) {
-    return this.reviewsService.create(createReviewDto, req.user.userId);
+  create(
+    @Body() createReviewDto: CreateReviewDto,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.reviewsService.create(createReviewDto, user.userId);
   }
 
   @Get()
@@ -29,22 +36,24 @@ export class ReviewsController {
     return this.reviewsService.findAll();
   }
 
+  // ParseIntPipe: con el +id anterior, /reviews/abc producia NaN y la query
+  // reventaba con un 500 en vez de responder 400
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.reviewsService.findOne(+id);
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.reviewsService.findOne(id);
   }
 
   @Patch(':id')
   update(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() updateReviewDto: UpdateReviewDto,
-    @Request() req,
+    @CurrentUser() user: JwtUser,
   ) {
-    return this.reviewsService.update(+id, updateReviewDto, req.user.userId);
+    return this.reviewsService.update(id, updateReviewDto, user.userId);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string, @Request() req) {
-    return this.reviewsService.remove(+id, req.user.userId);
+  remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: JwtUser) {
+    return this.reviewsService.remove(id, user.userId);
   }
 }

@@ -65,11 +65,11 @@ describe('Auth (e2e)', () => {
         .post('/auth/register')
         .send({ email: 'dup@test.com', password: 'secreto123' });
 
-      // PENDIENTE: hoy responde 500 porque el QueryFailedError de Postgres
-      // sube sin filtro de excepciones. Deberia ser un 409 Conflict.
-      // No fijamos el codigo para no consagrar el bug; lo que importa es
-      // que la restriccion unique aguante y no se duplique el usuario.
-      expect(res.status).toBeGreaterThanOrEqual(400);
+      // Ya no es un 500: DatabaseExceptionFilter traduce el
+      // unique_violation (23505) de Postgres a un 409 Conflict
+      expect(res.status).toBe(409);
+
+      expect(JSON.stringify(res.body)).not.toContain('dup@test.com');
 
       const ds = app.get(DataSource);
       const [{ count }] = await ds.query(

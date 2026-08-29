@@ -2,28 +2,25 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { getRepositoryToken } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { UsersService } from 'src/users/users.service';
 import { Role } from './enums/role.enum';
 import { digestToken } from './token-hash';
+import { RefreshToken } from './entities/refresh-token.entity';
 
 describe('AuthService', () => {
   let service: AuthService;
 
-  const mockUsersService = {
-    findByEmail: jest.fn(),
-    findById: jest.fn(),
-    setRefreshToken: jest.fn(),
-  };
-
-  const mockJwtService = {
-    signAsync: jest.fn(),
-    verifyAsync: jest.fn(),
-  };
-
-  const mockConfigService = {
-    get: jest.fn((k: string) => `valor-de-${k}`),
+  const mockUsersService = { findByEmail: jest.fn(), findById: jest.fn() };
+  const mockJwtService = { signAsync: jest.fn(), verifyAsync: jest.fn() };
+  const mockConfigService = { get: jest.fn((k: string) => 'valor-' + k) };
+  const mockRefreshTokens = {
+    create: jest.fn((x) => x),
+    save: jest.fn((x) => Promise.resolve(x)),
+    findOne: jest.fn(),
+    delete: jest.fn(),
   };
 
   // Hash real, no un string cualquiera: asi el test ejercita bcrypt.compare
@@ -42,6 +39,10 @@ describe('AuthService', () => {
         { provide: UsersService, useValue: mockUsersService },
         { provide: JwtService, useValue: mockJwtService },
         { provide: ConfigService, useValue: mockConfigService },
+        {
+          provide: getRepositoryToken(RefreshToken),
+          useValue: mockRefreshTokens,
+        },
       ],
     }).compile();
 
@@ -57,51 +58,43 @@ describe('AuthService', () => {
   describe('validateUser', () => {
     it('devuelve null si el email no existe', async () => {
       mockUsersService.findByEmail.mockResolvedValue(null);
-
-      await expect(
-        service.validateUser('nadie@test.com', PLAIN),
-      ).resolves.toBeNull();
+      await expect(service.validateUser('x@t.com', PLAIN)).resolves.toBeNull();
     });
 
-    it('devuelve null si la contraseña no coincide', async () => {
+    it('devuelve null si la contrasena no coincide', async () => {
       mockUsersService.findByEmail.mockResolvedValue({
         id: 1,
-        email: 'a@test.com',
+        email: 'a@t.com',
         password: hash,
         role: Role.User,
       });
-
       await expect(
-        service.validateUser('a@test.com', 'contraseña-incorrecta'),
+        service.validateUser('a@t.com', 'incorrecta'),
       ).resolves.toBeNull();
     });
 
-    it('no devuelve ni la contraseña ni el refresh token guardado', async () => {
+    it('no devuelve la contrasena', async () => {
       mockUsersService.findByEmail.mockResolvedValue({
         id: 1,
-        email: 'a@test.com',
+        email: 'a@t.com',
         password: hash,
         role: Role.User,
-        hashedRefreshToken: 'hash-guardado',
       });
-
-      const res = await service.validateUser('a@test.com', PLAIN);
-
-      expect(res).toEqual({ id: 1, email: 'a@test.com', role: Role.User });
+      const res = await service.validateUser('a@t.com', PLAIN);
+      expect(res).toEqual({ id: 1, email: 'a@t.com', role: Role.User });
       expect(res).not.toHaveProperty('password');
-      expect(res).not.toHaveProperty('hashedRefreshToken');
     });
   });
 
   describe('login', () => {
-    it('emite ambos tokens y guarda el hash del refresh', async () => {
+    it('emite ambos tokens', async () => {
       mockJwtService.signAsync
         .mockResolvedValueOnce('access-tok')
         .mockResolvedValueOnce('refresh-tok');
 
       const res = await service.login({
         id: 7,
-        email: 'a@test.com',
+        email: 'a@t.com',
         role: Role.User,
       });
 
@@ -109,80 +102,102 @@ describe('AuthService', () => {
         access_token: 'access-tok',
         refresh_token: 'refresh-tok',
       });
-      expect(mockUsersService.setRefreshToken).toHaveBeenCalledWith(
-        7,
-        'refresh-tok',
+    });
+
+    // El bug del multi-dispositivo: antes se PISABA una columna de User, asi
+    // que entrar desde otro aparato expulsaba al anterior
+    it('crea una sesion NUEVA en vez de pisar la anterior', async () => {
+      mockJwtService.signAsync.mockResolvedValue('tok');
+
+      await service.login({ id: 7, email: 'a@t.com', role: Role.User });
+
+      expect(mockRefreshTokens.save).toHaveBeenCalledWith(
+        expect.objectContaining({ jti: expect.any(String), user: { id: 7 } }),
       );
     });
 
-    it('incluye el rol en el payload del token', async () => {
-      mockJwtService.signAsync.mockResolvedValue('tok');
+    it('guarda el token hasheado, nunca en claro', async () => {
+      mockJwtService.signAsync.mockResolvedValue('refresh-en-claro');
 
-      await service.login({ id: 7, email: 'a@test.com', role: Role.Admin });
+      await service.login({ id: 7, email: 'a@t.com', role: Role.User });
 
-      expect(mockJwtService.signAsync).toHaveBeenCalledWith(
-        { sub: 7, username: 'a@test.com', role: Role.Admin },
-        expect.anything(),
-      );
+      const guardado = mockRefreshTokens.save.mock.calls[0][0];
+      expect(guardado.tokenHash).not.toBe('refresh-en-claro');
+      await expect(
+        bcrypt.compare(digestToken('refresh-en-claro'), guardado.tokenHash),
+      ).resolves.toBe(true);
     });
 
     it('firma access y refresh con secretos DISTINTOS', async () => {
       mockJwtService.signAsync.mockResolvedValue('tok');
 
-      await service.login({ id: 7, email: 'a@test.com', role: Role.User });
+      await service.login({ id: 7, email: 'a@t.com', role: Role.User });
 
-      const [, opcionesAccess] = mockJwtService.signAsync.mock.calls[0];
-      const [, opcionesRefresh] = mockJwtService.signAsync.mock.calls[1];
-      expect(opcionesAccess.secret).not.toBe(opcionesRefresh.secret);
+      const [, opcAccess] = mockJwtService.signAsync.mock.calls[0];
+      const [, opcRefresh] = mockJwtService.signAsync.mock.calls[1];
+      expect(opcAccess.secret).not.toBe(opcRefresh.secret);
     });
   });
 
   describe('refresh', () => {
-    it('rechaza un token con firma invalida', async () => {
-      mockJwtService.verifyAsync.mockRejectedValue(new Error('bad signature'));
+    const sesionCon = async (token: string) => ({
+      id: 55,
+      jti: 'jti-actual',
+      tokenHash: await bcrypt.hash(digestToken(token), 10),
+      expiresAt: new Date(Date.now() + 60000),
+      user: { id: 1, email: 'a@t.com', role: Role.User },
+    });
 
-      await expect(service.refresh('token-malo')).rejects.toThrow(
+    it('rechaza un token con firma invalida', async () => {
+      mockJwtService.verifyAsync.mockRejectedValue(new Error('bad sig'));
+      await expect(service.refresh('malo')).rejects.toThrow(
         UnauthorizedException,
       );
     });
 
-    it('rechaza si el usuario no tiene sesion activa', async () => {
+    it('rechaza un token sin jti', async () => {
       mockJwtService.verifyAsync.mockResolvedValue({ sub: 1 });
-      mockUsersService.findById.mockResolvedValue({
-        id: 1,
-        hashedRefreshToken: null,
-      });
+      await expect(service.refresh('sin-jti')).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
 
+    it('rechaza si la sesion no existe', async () => {
+      mockJwtService.verifyAsync.mockResolvedValue({ sub: 1, jti: 'x' });
+      mockRefreshTokens.findOne.mockResolvedValue(null);
       await expect(service.refresh('token')).rejects.toThrow(
         UnauthorizedException,
       );
     });
 
-    it('rechaza un refresh token que no coincide con el guardado', async () => {
-      const guardado = await bcrypt.hash(digestToken('token-viejo'), 10);
-      mockJwtService.verifyAsync.mockResolvedValue({ sub: 1 });
-      mockUsersService.findById.mockResolvedValue({
-        id: 1,
-        email: 'a@test.com',
-        role: Role.User,
-        hashedRefreshToken: guardado,
+    it('rechaza y borra una sesion caducada', async () => {
+      mockJwtService.verifyAsync.mockResolvedValue({ sub: 1, jti: 'x' });
+      mockRefreshTokens.findOne.mockResolvedValue({
+        id: 55,
+        expiresAt: new Date(Date.now() - 60000),
       });
 
-      await expect(service.refresh('token-distinto')).rejects.toThrow(
+      await expect(service.refresh('token')).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(mockRefreshTokens.delete).toHaveBeenCalledWith(55);
+    });
+
+    it('rechaza un token que no coincide con el hash guardado', async () => {
+      mockJwtService.verifyAsync.mockResolvedValue({ sub: 1, jti: 'x' });
+      mockRefreshTokens.findOne.mockResolvedValue(await sesionCon('viejo'));
+      await expect(service.refresh('distinto')).rejects.toThrow(
         UnauthorizedException,
       );
     });
 
-    it('rota el token: emite uno nuevo y reemplaza el guardado', async () => {
+    it('rota SOLO esa sesion: reutiliza la fila y le cambia el jti', async () => {
       const actual = 'refresh-actual';
-      const guardado = await bcrypt.hash(digestToken(actual), 10);
-      mockJwtService.verifyAsync.mockResolvedValue({ sub: 1 });
-      mockUsersService.findById.mockResolvedValue({
-        id: 1,
-        email: 'a@test.com',
-        role: Role.User,
-        hashedRefreshToken: guardado,
+      mockJwtService.verifyAsync.mockResolvedValue({
+        sub: 1,
+        jti: 'jti-actual',
       });
+      mockRefreshTokens.findOne.mockResolvedValue(await sesionCon(actual));
       mockJwtService.signAsync
         .mockResolvedValueOnce('access-nuevo')
         .mockResolvedValueOnce('refresh-nuevo');
@@ -190,18 +205,35 @@ describe('AuthService', () => {
       const res = await service.refresh(actual);
 
       expect(res.refresh_token).toBe('refresh-nuevo');
-      expect(mockUsersService.setRefreshToken).toHaveBeenCalledWith(
-        1,
-        'refresh-nuevo',
-      );
+      const guardado = mockRefreshTokens.save.mock.calls[0][0];
+      expect(guardado.id).toBe(55); // misma fila, no una nueva
+      expect(guardado.jti).not.toBe('jti-actual');
     });
   });
 
   describe('logout', () => {
-    it('borra el refresh token guardado', async () => {
-      await service.logout(3);
+    it('borra solo la sesion del token presentado', async () => {
+      const token = 'refresh-de-este-dispositivo';
+      mockJwtService.verifyAsync.mockResolvedValue({ sub: 1, jti: 'jti-1' });
+      mockRefreshTokens.findOne.mockResolvedValue({
+        id: 99,
+        tokenHash: await bcrypt.hash(digestToken(token), 10),
+        expiresAt: new Date(Date.now() + 60000),
+        user: { id: 1 },
+      });
 
-      expect(mockUsersService.setRefreshToken).toHaveBeenCalledWith(3, null);
+      await service.logout(token);
+
+      expect(mockRefreshTokens.delete).toHaveBeenCalledWith(99);
+    });
+  });
+
+  describe('logoutAll', () => {
+    it('borra todas las sesiones del usuario', async () => {
+      await service.logoutAll(3);
+      expect(mockRefreshTokens.delete).toHaveBeenCalledWith({
+        user: { id: 3 },
+      });
     });
   });
 });
