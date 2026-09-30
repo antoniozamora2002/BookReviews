@@ -1,8 +1,9 @@
 # Ajustes de pnpm (desde pnpm 10 ya no se leen desde el campo "pnpm" de package.json)
 
-# Fuerza js-yaml >=4 en todo el arbol (parche de seguridad, ver commit 57bb1d0)
 overrides:
-  js-yaml: ^4.1.1
+  js-yaml: ^4.3.2
+  # jest 29 (via micromatch/anymatch) fija picomatch 2.3.1, vulnerable a ReDoS
+  'picomatch@<2.3.2': ^2.3.2
 
 # pnpm bloquea los lifecycle scripts por defecto; estos si pueden ejecutarlos
 allowBuilds:
